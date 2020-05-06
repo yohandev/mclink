@@ -1,6 +1,7 @@
 package yohandev.mclink;
 
 import org.bukkit.command.CommandExecutor;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import yohandev.mclink.modules.Health;
@@ -22,7 +23,7 @@ public final class Main extends JavaPlugin
 		register(new Statue());
 	}
 
-	private void register(Object obj, String cmd)
+	public void register(Object obj, String cmd)
 	{
 		if (obj instanceof Listener)
 		{
@@ -34,8 +35,13 @@ public final class Main extends JavaPlugin
 		}
 	}
 
-	private void register(Object obj)
+	public void register(Object obj)
 	{
 		register(obj, "");
+	}
+
+	public void unregister(Listener l)
+	{
+		HandlerList.unregisterAll(l);
 	}
 }

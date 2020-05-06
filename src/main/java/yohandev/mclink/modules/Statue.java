@@ -1,9 +1,6 @@
 package yohandev.mclink.modules;
 
-import org.bukkit.ChatColor;
-import org.bukkit.Effect;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -15,6 +12,28 @@ import java.util.HashMap;
 public class Statue implements Listener
 {
 	private HashMap<Player, ShrineInteraction> m_interactions = new HashMap<>();
+
+	public class StatueCutscene extends Cutscene
+	{
+		public static final double RADIUS = 10;
+		private final String SOULS = Soul.CHAT + "s" + ChatColor.WHITE;
+
+		public StatueCutscene(PlayerInteractEvent e)
+		{
+			super(e.getPlayer());
+
+			Location block = e.getClickedBlock().getLocation();
+
+			super.push(new PanLookAtAction(block, RADIUS, 100));
+			super.push(new DialogueAction("Traveler...", 100));
+
+			super.push(new PanLookAtAction(block, RADIUS, 100));
+			super.push(new DialogueAction("I sense you've collected " + SOULS + ".", 100));
+
+			super.push(new PanLookAtAction(block, RADIUS, 100));
+			super.push(new DialogueAction("I can offer you great power.", 100));
+		}
+	}
 
 	@EventHandler
 	public void onPlayerInteract(PlayerInteractEvent e)
@@ -29,27 +48,29 @@ public class Statue implements Listener
 			return; // not bell
 		}
 
-		if (!m_interactions.containsKey(e.getPlayer()) || m_interactions.get(e.getPlayer()).timedOut())
-		{
-			m_interactions.put(e.getPlayer(), new ShrineInteraction()); // new interaction
-		}
-		else if (!m_interactions.get(e.getPlayer()).delayed())
-		{
-			return; // clicks too soon
-		}
+		new StatueCutscene(e).run();
 
-		ShrineInteraction i = m_interactions.get(e.getPlayer()); // current interaction
-
-		Effect(e, Effect.VILLAGER_PLANT_GROW); // vfx
-		Sound(e, Sound.AMBIENT_CAVE); // sfx
-		i.message(e.getPlayer()); // dialogue
-		i.step(e.getPlayer()); // next
-
-		if (i.done())
-		{
-			m_interactions.remove(e.getPlayer());
-			Soul.give(e.getPlayer(), 5);
-		}
+//		if (!m_interactions.containsKey(e.getPlayer()) || m_interactions.get(e.getPlayer()).timedOut())
+//		{
+//			m_interactions.put(e.getPlayer(), new ShrineInteraction()); // new interaction
+//		}
+//		else if (!m_interactions.get(e.getPlayer()).delayed())
+//		{
+//			return; // clicks too soon
+//		}
+//
+//		ShrineInteraction i = m_interactions.get(e.getPlayer()); // current interaction
+//
+//		Effect(e, Effect.VILLAGER_PLANT_GROW); // vfx
+//		Sound(e, Sound.AMBIENT_CAVE); // sfx
+//		i.message(e.getPlayer()); // dialogue
+//		i.step(e.getPlayer()); // next
+//
+//		if (i.done())
+//		{
+//			m_interactions.remove(e.getPlayer());
+//			Soul.give(e.getPlayer(), 5);
+//		}
 
 		e.setCancelled(true);
 	}
