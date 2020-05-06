@@ -7,6 +7,9 @@ description: Custom survival behaviours for my minecraft server. Inspired by BoT
 website: yohandev.github.io
 load: startup
 commands:
-  mclink:
+  soulhealth:
     description: internal command
-    usage: do not use
+    usage: Not enough souls!
+  soulstamina:
+    description: internal command
+    usage: Not enough souls!

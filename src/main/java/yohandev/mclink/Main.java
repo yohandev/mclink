@@ -3,8 +3,9 @@ package yohandev.mclink;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
-import yohandev.mclink.listeners.HealthHungerListener;
-import yohandev.mclink.listeners.ShrineListener;
+import yohandev.mclink.modules.Health;
+import yohandev.mclink.modules.Stamina;
+import yohandev.mclink.modules.Statue;
 
 public final class Main extends JavaPlugin
 {
@@ -15,33 +16,26 @@ public final class Main extends JavaPlugin
 	{
 		instance = this;
 
-		Config.load();
-
 		// Listener
-		register(new HealthHungerListener(), "mclink");
-		register(new ShrineGenerator());
-		register(new ShrineListener());
-	}
-
-	@Override
-	public void onDisable()
-	{
-		Config.unload();
-	}
-
-	private void register(Listener l)
-	{
-		this.getServer().getPluginManager().registerEvents(l, this);
-	}
-
-	private void register(String cmd, CommandExecutor exe)
-	{
-		this.getCommand(cmd).setExecutor(exe);
+		register(new Health(), "soulhealth");
+		register(new Stamina(), "soulstamina");
+		register(new Statue());
 	}
 
 	private void register(Object obj, String cmd)
 	{
-		register((Listener)obj);
-		register(cmd, (CommandExecutor)obj);
+		if (obj instanceof Listener)
+		{
+			this.getServer().getPluginManager().registerEvents((Listener) obj, this);
+		}
+		if (obj instanceof CommandExecutor)
+		{
+			this.getCommand(cmd).setExecutor((CommandExecutor) obj);
+		}
+	}
+
+	private void register(Object obj)
+	{
+		register(obj, "");
 	}
 }
