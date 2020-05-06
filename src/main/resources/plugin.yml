@@ -1,0 +1,12 @@
+name: mclink
+version: ${project.version}
+main: yohandev.mclink.Main
+api-version: 1.13
+authors: [yohandev]
+description: Custom survival behaviours for my minecraft server. Inspired by BoTW, hence the name "link."
+website: yohandev.github.io
+load: startup
+commands:
+  mclink:
+    description: internal command
+    usage: do not use

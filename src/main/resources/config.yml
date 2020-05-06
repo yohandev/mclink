@@ -1,0 +1,8 @@
+# format
+# uuid: [ HEALTH, STAMINA ]
+
+# world config
+default: [6, 6]
+
+# player save data
+some_uuid_061aB48Jkf: [10, 6]
