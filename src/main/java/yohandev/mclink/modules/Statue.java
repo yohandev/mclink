@@ -13,10 +13,10 @@ public class Statue implements Listener
 {
 	private HashMap<Player, ShrineInteraction> m_interactions = new HashMap<>();
 
-	public class StatueCutscene extends Cutscene
+	public static class StatueCutscene extends Cutscene
 	{
 		public static final double RADIUS = 10;
-		private final String SOULS = Soul.CHAT + "s" + ChatColor.WHITE;
+		public static final String SOULS = Soul.CHAT + "s" + ChatColor.WHITE;
 
 		public StatueCutscene(PlayerInteractEvent e)
 		{
@@ -24,14 +24,40 @@ public class Statue implements Listener
 
 			Location block = e.getClickedBlock().getLocation();
 
-			super.push(new PanLookAtAction(block, RADIUS, 100));
+			/* dialogue */
+			super.push(new PanLookAtAction(block, RADIUS, 200));
+			super.push(new SoundAction(Sound.AMBIENT_CAVE, block));
 			super.push(new DialogueAction("Traveler...", 100));
 
-			super.push(new PanLookAtAction(block, RADIUS, 100));
+			super.push(new SoundAction(Sound.AMBIENT_CAVE, block));
 			super.push(new DialogueAction("I sense you've collected " + SOULS + ".", 100));
 
-			super.push(new PanLookAtAction(block, RADIUS, 100));
+			super.push(new PanLookAtAction(block, RADIUS, 200));
+			super.push(new SoundAction(Sound.AMBIENT_CAVE, block));
 			super.push(new DialogueAction("I can offer you great power.", 100));
+
+			/* test */
+			if (Soul.amount(super.target) < Soul.COST)
+			{
+				super.push(new SoundAction(Sound.AMBIENT_CAVE, block));
+				super.push(new DialogueAction("But you do not yet have " + ChatColor.RED + "four " + SOULS + ".", 100));
+
+				Soul.give(e.getPlayer(), 60);
+
+				return; // done
+			}
+
+			super.push(new SoundAction(Sound.AMBIENT_CAVE, block));
+			super.push(new DialogueAction("In exchange for " + ChatColor.RED + "four " + SOULS + ", I will amplify your being.", 100));
+
+			/* selection */
+			super.push
+			(
+				new PromptAction("Choose wisely...", 3)
+					.option(Material.GRASS, "Heart Container", "Increase your maximum amount of hearts by one.", () -> chain(new Health.HeartCutscene(target, block)))
+					.option(Material.STONE, "Stamina Vessel", "Increase your maximum amount of stamina by one.", () -> chain(new Stamina.StaminaCutscene(target, block)))
+					.option(Material.BARRIER, "Cancel", "Do not bargain with the gods.", () -> {})
+			);
 		}
 	}
 

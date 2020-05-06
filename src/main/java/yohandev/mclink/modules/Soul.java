@@ -19,6 +19,8 @@ public class Soul
 	public static final String CHAT = ChatColor.AQUA + "" + ChatColor.BOLD + "Corrupted Soul";
 	private static final NamespacedKey KEY = new NamespacedKey(Main.instance, "soul");
 
+	public static final int COST = 4;
+
 	public static void give(Player p, int amount)
 	{
 		p.getInventory().addItem(create(amount));

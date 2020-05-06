@@ -1,6 +1,9 @@
 package yohandev.mclink.modules;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -19,7 +22,6 @@ public class Stamina implements Listener, CommandExecutor
 {
 	public static final String OBJECTIVE = "maxstamina";
 	public static final int DEFAULT = 6;
-	public static final int COST = 4;
 
 	public static void update(Player p)
 	{
@@ -74,6 +76,46 @@ public class Stamina implements Listener, CommandExecutor
 		}
 	}
 
+	public static class StaminaCutscene extends Cutscene
+	{
+		public StaminaCutscene(Player target, Location statue)
+		{
+			super(target);
+
+			if (!Soul.takeaway(target, Soul.COST))
+			{
+				return; // somehow got here without souls
+			}
+			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
+
+			super.push(new SoundAction(Sound.MUSIC_DISC_MELLOHI, null));
+			super.push(new ResetAction());
+			super.push(new QuestItemAction(Material.COOKED_BEEF, statue, 150));
+			super.push(new WaitAction(150));
+
+			super.push(p ->
+			{
+				update(p); // update display
+
+				return true;
+			});
+			super.push(new WaitAction(30));
+			super.push(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP, null));
+			super.push(new PotionAction(PotionEffectType.SATURATION, 100, 5));
+		}
+	}
+
+	public static void gain(Player p)
+	{
+		if (Soul.takeaway(p, Soul.COST))
+		{
+			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a stamina vessel
+			update(p); // update display
+
+			p.addPotionEffect(new PotionEffect(PotionEffectType.SATURATION, 100, 5, false, false, false));
+		}
+	}
+
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
 	{
@@ -83,7 +125,7 @@ public class Stamina implements Listener, CommandExecutor
 		}
 		Player p = (Player) sender;
 
-		if (Soul.takeaway((Player) sender, COST))
+		if (Soul.takeaway((Player) sender, Soul.COST))
 		{
 			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a stamina vessel
 			update(p); // update display

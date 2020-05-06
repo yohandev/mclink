@@ -1,5 +1,9 @@
 package yohandev.mclink.modules;
 
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.command.Command;
@@ -19,7 +23,6 @@ public class Health implements Listener, CommandExecutor
 {
 	public static final String OBJECTIVE = "maxhealth";
 	public static final int DEFAULT = 6;
-	public static final int COST = 4;
 
 	public static void update(Player p)
 	{
@@ -66,6 +69,46 @@ public class Health implements Listener, CommandExecutor
 		}
 	}
 
+	public static class HeartCutscene extends Cutscene
+	{
+		public HeartCutscene(Player target, Location statue)
+		{
+			super(target);
+
+			if (!Soul.takeaway(target, Soul.COST))
+			{
+				return; // somehow got here without souls
+			}
+			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
+
+			super.push(new SoundAction(Sound.MUSIC_DISC_MELLOHI, null));
+			super.push(new ResetAction());
+			super.push(new QuestItemAction(Material.COOKED_BEEF, statue, 150));
+			super.push(new WaitAction(150));
+
+			super.push(p ->
+			{
+				update(p); // update display
+
+				return true;
+			});
+			super.push(new WaitAction(30));
+			super.push(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP, null));
+			super.push(new PotionAction(PotionEffectType.REGENERATION, 10, 5));
+		}
+	}
+
+	public static void gain(Player p)
+	{
+		if (Soul.takeaway(p, Soul.COST))
+		{
+			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a heart vessel
+			update(p); // update display
+
+			p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10, 5, false, false, false));
+		}
+	}
+
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
 	{
@@ -75,7 +118,7 @@ public class Health implements Listener, CommandExecutor
 		}
 		Player p = (Player) sender;
 
-		if (Soul.takeaway((Player) sender, COST))
+		if (Soul.takeaway((Player) sender, Soul.COST))
 		{
 			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a heart vessel
 			update(p); // update display

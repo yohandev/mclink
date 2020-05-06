@@ -1,5 +1,6 @@
 package yohandev.mclink;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
@@ -40,8 +41,8 @@ public final class Main extends JavaPlugin
 		register(obj, "");
 	}
 
-	public void unregister(Listener l)
+	public static void command(String cmd)
 	{
-		HandlerList.unregisterAll(l);
+		Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
 	}
 }

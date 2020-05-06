@@ -9,11 +9,12 @@ public class Utilities
 	public static Location RandomLocation(Location center, double radius, boolean abs)
 	{
 		World w = center.getWorld();
-		Vector s = Vector.getRandom().normalize().multiply(radius).add(center.toVector());
+		Vector r = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+		Vector s = r.normalize().multiply(radius).add(center.toVector());
 
 		if (abs)
 		{
-			return new Location(w, s.getX(), Math.abs(s.getY()), s.getZ());
+			s = s.setY(center.getWorld().getHighestBlockAt(s.getBlockX(), s.getBlockZ()).getY() + 1);
 		}
 		return new Location(w, s.getX(), s.getY(), s.getZ());
 	}
