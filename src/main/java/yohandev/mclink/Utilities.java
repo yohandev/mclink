@@ -67,4 +67,34 @@ public class Utilities
 
 		return stand;
 	}
+
+	public static Location safe(Location l)
+	{
+		Location safe = l.clone();
+
+		while (safe.getBlock().getType() != Material.AIR)
+		{
+			safe = safe.add(0, 1, 0);
+		}
+		return safe;
+	}
+
+	public static String name(ItemStack i)
+	{
+		String out = i.getItemMeta().getDisplayName();
+
+		if (out.length() == 0)
+		{
+			StringBuilder p = new StringBuilder(i.getType().name().replace('_', ' ').toLowerCase());
+			for (String s : out.split(" ", -1))
+			{
+				if (s.length() <= 0) { continue; }
+
+				p.append(s.substring(0, 1).toUpperCase()).append(s.substring(1)).append(" ");
+			}
+			out = p.toString();
+		}
+
+		return out;
+	}
 }

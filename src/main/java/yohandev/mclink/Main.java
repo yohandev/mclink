@@ -4,10 +4,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
+
 import yohandev.mclink.modules.Health;
 import yohandev.mclink.modules.Stamina;
 import yohandev.mclink.modules.Statue;
-import yohandev.mclink.modules.TrialStatue;
+import yohandev.mclink.modules.Trial;
 
 public final class Main extends JavaPlugin
 {
@@ -22,7 +23,7 @@ public final class Main extends JavaPlugin
 		register(new Health());
 		register(new Stamina());
 		register(new Statue());
-		register(new TrialStatue(), "trial");
+		register(new Trial(), "trial");
 	}
 
 	public void register(Object obj, String cmd)

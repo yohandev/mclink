@@ -248,7 +248,7 @@ public abstract class Cutscene
 			{
 				target.teleport(Utilities.lerp(from, to, t));
 			}
-			else
+			else if (reset)
 			{
 				target.teleport(start.clone());
 			}
@@ -597,74 +597,6 @@ public abstract class Cutscene
 		}
 	}
 
-//	protected class QuestItemAction implements Action
-//	{
-//		public final long time;
-//
-//		public final ArmorStand display;
-//
-//		public final Location start, end;
-//
-//		public final Location travel;
-//		public final Vector delta;
-//		public final double dist;
-//
-//		public QuestItemAction(Material item, Location start, long time)
-//		{
-//			Location end = Cutscene.this.start;
-//
-//			display = start.getWorld().spawn(start.clone(), ArmorStand.class);
-//
-//			display.setVisible(false);
-//			display.setInvulnerable(true);
-//			display.setBasePlate(false);
-//			display.setGravity(false);
-//			display.getEquipment().setHelmet(new ItemStack(item));
-//
-//			this.start = start.clone().add(0, 5, 0);
-//			this.end = end;
-//			this.time = time;
-//
-//			this.travel = this.end.clone().subtract(this.start);
-//			this.dist = travel.length();
-//			this.delta = travel.toVector().normalize().multiply(dist / time);
-//		}
-//
-//		@Override
-//		public boolean run(Player p)
-//		{
-//			new BukkitRunnable()
-//			{
-//				long count = time;
-//
-//				@Override
-//				public void run()
-//				{
-//					/* armor stand*/
-//					start.add(delta);
-//					start.setYaw(start.getYaw() + 4);
-//
-//					display.teleport(start);
-//
-//					/* player */
-//					Location loc = p.getLocation();
-//					Vector dir = display.getLocation().clone().subtract(loc).toVector().normalize();
-//
-//					p.teleport(loc.setDirection(dir));
-//
-//					if (count-- <= 0)
-//					{
-//						display.remove();
-//
-//						cancel();
-//					}
-//				}
-//			}.runTaskTimer(Main.instance, 0, 1);
-//
-//			return true; // async auto done
-//		}
-//	}
-
 	protected class GameModeAction implements Action
 	{
 		public final GameMode mode;
@@ -692,6 +624,61 @@ public abstract class Cutscene
 		public boolean run()
 		{
 			target.remove();
+
+			return true;
+		}
+	}
+
+	protected class TeleportAction implements Action
+	{
+		public final Location loc;
+		public final Entity ent;
+
+		public final boolean reset; // should reset cutscene start?
+		public final boolean safe;
+
+		public TeleportAction(Location loc, boolean safe, boolean reset)
+		{
+			this.loc = loc;
+			this.ent = null;
+
+			this.reset = reset;
+			this.safe = safe;
+		}
+
+		public TeleportAction(Location loc, boolean safe)
+		{
+			this(loc, safe, false);
+		}
+
+		public TeleportAction(Entity ent, boolean safe, boolean reset)
+		{
+			this.loc = null;
+			this.ent = ent;
+
+			this.reset = reset;
+			this.safe = safe;
+		}
+
+		public TeleportAction(Entity ent, boolean safe)
+		{
+			this(ent, safe, false);
+		}
+
+		@Override
+		public boolean run()
+		{
+			Location to = ent == null ? loc : ent.getLocation();
+
+			if (safe)
+			{
+				to = Utilities.safe(to);
+			}
+			if (reset)
+			{
+				start = to.clone();
+			}
+			target.teleport(to);
 
 			return true;
 		}
