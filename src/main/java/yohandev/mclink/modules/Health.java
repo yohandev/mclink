@@ -43,9 +43,8 @@ public class Health implements Listener
 		if (!player.hasPlayedBefore())
 		{
 			Scoreboard.set(OBJECTIVE, player.getName(), DEFAULT);
+			update(player);
 		}
-
-		update(player);
 	}
 
 	@EventHandler

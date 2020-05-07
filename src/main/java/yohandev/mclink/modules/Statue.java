@@ -8,14 +8,17 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.world.WorldInitEvent;
+import org.bukkit.generator.BlockPopulator;
 import org.bukkit.util.Vector;
 import yohandev.mclink.Utilities;
+
+import java.util.Random;
 
 public class Statue implements Listener
 {
 	public static class StatueCutscene extends Cutscene
 	{
-		public static final double RADIUS = 10;
 		public static final String SOULS = Soul.CHAT + "s" + ChatColor.WHITE;
 
 		public StatueCutscene(PlayerInteractEvent e)
@@ -65,6 +68,51 @@ public class Statue implements Listener
 		}
 	}
 
+	public static class Generator extends BlockPopulator
+	{
+		public static double SPAWN_CHANCE = 0.005;
+		public static double SPAWN_RADIUS = 64;
+
+		@Override
+		public void populate(World world, Random random, Chunk chunk)
+		{
+			double chance = SPAWN_CHANCE;
+
+			if (world.getSpawnLocation().distance(chunk.getBlock(0, 0, 0).getLocation()) < SPAWN_RADIUS)
+			{
+				chance *= 50;
+			}
+
+			if (random.nextDouble() > chance)
+			{
+				return; // no shrine
+			}
+
+			int x = random.nextInt(13) + 1;
+			int z = random.nextInt(13) + 1;
+			int y;
+			for (y = world.getMaxHeight() - 1; chunk.getBlock(x, y, z).getType() == Material.AIR; y--);
+
+			if (chunk.getBlock(x, y, z).getType() == Material.WATER)
+			{
+				return;
+			}
+
+			System.out.println("gen");
+
+			/* gen shrine */
+			chunk.getBlock(x, y + 1, z).setType(Material.STONE_BRICKS); // base
+			chunk.getBlock(x, y + 2, z).setType(Material.COMMAND_BLOCK); // statue
+
+			/* clear area */
+			chunk.getBlock(x - 1, y + 2, z - 1).setType(Material.AIR);
+			chunk.getBlock(x + 1, y + 2, z - 1).setType(Material.AIR);
+			chunk.getBlock(x + 1, y + 2, z + 1).setType(Material.AIR);
+			chunk.getBlock(x - 1, y + 2, z + 1).setType(Material.AIR);
+			chunk.getBlock(x, y + 3, z).setType(Material.AIR);
+		}
+	}
+
 	@EventHandler
 	public void onPlayerInteract(PlayerInteractEvent e)
 	{
@@ -73,7 +121,7 @@ public class Statue implements Listener
 			return; // not right click
 		}
 
-		if (e.getClickedBlock().getType() != Material.CHEST)
+		if (e.getClickedBlock().getType() != Material.COMMAND_BLOCK)
 		{
 			return; // not bell
 		}
@@ -81,5 +129,18 @@ public class Statue implements Listener
 		new StatueCutscene(e).run();
 
 		e.setCancelled(true);
+	}
+
+	@EventHandler
+	public void onWorldInit(WorldInitEvent event)
+	{
+		World world = event.getWorld();
+
+		if (world.getName().contains("end") || world.getName().contains("nether"))
+		{
+			return;
+		}
+
+		world.getPopulators().add(new Generator());
 	}
 }
