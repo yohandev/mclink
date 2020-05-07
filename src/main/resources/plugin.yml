@@ -6,10 +6,3 @@ authors: [yohandev]
 description: Custom survival behaviours for my minecraft server. Inspired by BoTW, hence the name "link."
 website: yohandev.github.io
 load: startup
-commands:
-  soulhealth:
-    description: internal command
-    usage: Not enough souls!
-  soulstamina:
-    description: internal command
-    usage: Not enough souls!

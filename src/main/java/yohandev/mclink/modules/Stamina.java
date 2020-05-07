@@ -1,12 +1,8 @@
 package yohandev.mclink.modules;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,8 +13,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import yohandev.mclink.Main;
 import yohandev.mclink.Scoreboard;
+import yohandev.mclink.Utilities;
 
-public class Stamina implements Listener, CommandExecutor
+public class Stamina implements Listener
 {
 	public static final String OBJECTIVE = "maxstamina";
 	public static final int DEFAULT = 6;
@@ -78,7 +75,7 @@ public class Stamina implements Listener, CommandExecutor
 
 	public static class StaminaCutscene extends Cutscene
 	{
-		public StaminaCutscene(Player target, Location statue)
+		public StaminaCutscene(Player target, Block statue)
 		{
 			super(target);
 
@@ -86,40 +83,58 @@ public class Stamina implements Listener, CommandExecutor
 			{
 				return; // somehow got here without souls
 			}
-			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
-			//super.push(new PotionAction(PotionEffectType.SATURATION, 100, 5));
-		}
-	}
+			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a saturation now, just in case
 
-	public static void gain(Player p)
-	{
-		if (Soul.takeaway(p, Soul.COST))
+			/* spinning food */
+			super.sync(new GameModeAction(GameMode.SURVIVAL));
+			super.async(new SpinningFoodAction(statue));
+			super.sync(new AwaitAction());
+
+			/* gain stamina */
+			super.sync(new RunnableAction(() -> update(target)));
+			super.sync(new SoundAction(Sound.MUSIC_DISC_MELLOHI));
+			super.sync(new WaitAction(30));
+
+			/* saturation */
+			super.sync(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP));
+			super.sync(new PotionAction(PotionEffectType.SATURATION, 100, 5));
+		}
+
+		private class SpinningFood extends Cutscene
 		{
-			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a stamina vessel
-			update(p); // update display
+			public SpinningFood(Location from, Entity to)
+			{
+				super(Utilities.FloatingItem(Material.STRUCTURE_VOID, from));
 
-			p.addPotionEffect(new PotionEffect(PotionEffectType.SATURATION, 100, 5, false, false, false));
+				super.async(new LerpAction(from, to, 100, false));
+				super.async(new SpinAction(4, 100));
+				super.sync(new AwaitAction());
+				super.sync(new SuicideAction());
+			}
 		}
-	}
 
-	@Override
-	public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
-	{
-		if (!(sender instanceof Player))
+		private class SpinningFoodAction implements Action
 		{
-			return false; // not a player
+			private final Block statue;
+			private SpinningFood scene;
+
+			private SpinningFoodAction(Block statue)
+			{
+				this.statue = statue;
+				this.scene = null;
+			}
+
+			@Override
+			public boolean run()
+			{
+				if (scene == null)
+				{
+					scene = new SpinningFood(statue.getLocation().clone().add(0, 5, 0), target);
+					scene.run();
+				}
+
+				return scene.done();
+			}
 		}
-		Player p = (Player) sender;
-
-		if (Soul.takeaway((Player) sender, Soul.COST))
-		{
-			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a stamina vessel
-			update(p); // update display
-
-			p.addPotionEffect(new PotionEffect(PotionEffectType.SATURATION, 100, 5, false, false, false));
-
-			return true;
-		}
-		return false; // not enough soul
 	}
 }

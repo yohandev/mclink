@@ -59,8 +59,8 @@ public class Statue implements Listener
 			(
 				new PromptAction("Choose wisely...", 3)
 					.option(Material.COMMAND_BLOCK_MINECART, "Heart Container", "Increase your maximum amount of hearts by one.", () -> append(new Health.HeartCutscene((Player) target, statue)))
-					.option(Material.STONE, "Stamina Vessel", "Increase your maximum amount of stamina by one.", () -> append(new Stamina.StaminaCutscene((Player) target, pos)))
-					.option(Material.BARRIER, "Cancel", "Do not bargain with the gods.", () -> {})
+					.option(Material.STRUCTURE_VOID, "Stamina Vessel", "Increase your maximum amount of stamina by one.", () -> append(new Stamina.StaminaCutscene((Player) target, statue)))
+					.option(Material.BARRIER, "Cancel", "Nevermind...", () -> {})
 			);
 		}
 	}

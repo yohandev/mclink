@@ -7,9 +7,6 @@ import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,12 +14,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import yohandev.mclink.Scoreboard;
 import yohandev.mclink.Utilities;
 
-public class Health implements Listener, CommandExecutor
+public class Health implements Listener
 {
 	public static final String OBJECTIVE = "maxhealth";
 	public static final int DEFAULT = 6;
@@ -82,7 +78,7 @@ public class Health implements Listener, CommandExecutor
 			{
 				return; // somehow got here without souls
 			}
-			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
+			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart now, just in case
 
 			/* spinning heart */
 			super.sync(new GameModeAction(GameMode.SURVIVAL));
@@ -135,37 +131,5 @@ public class Health implements Listener, CommandExecutor
 				return scene.done();
 			}
 		}
-	}
-
-	public static void gain(Player p)
-	{
-		if (Soul.takeaway(p, Soul.COST))
-		{
-			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a heart vessel
-			update(p); // update display
-
-			p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10, 5, false, false, false));
-		}
-	}
-
-	@Override
-	public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
-	{
-		if (!(sender instanceof Player))
-		{
-			return false; // not a player
-		}
-		Player p = (Player) sender;
-
-		if (Soul.takeaway((Player) sender, Soul.COST))
-		{
-			Scoreboard.add(OBJECTIVE, p.getName(), 2); // add a heart vessel
-			update(p); // update display
-
-			p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 10, 5, false, false, false));
-
-			return true;
-		}
-		return false; // not enough soul
 	}
 }

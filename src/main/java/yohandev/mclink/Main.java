@@ -19,8 +19,8 @@ public final class Main extends JavaPlugin
 		instance = this;
 
 		// Listener
-		register(new Health(), "soulhealth");
-		register(new Stamina(), "soulstamina");
+		register(new Health());
+		register(new Stamina());
 		register(new Statue());
 	}
 

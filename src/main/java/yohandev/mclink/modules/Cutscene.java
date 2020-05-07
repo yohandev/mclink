@@ -316,8 +316,6 @@ public abstract class Cutscene
 
 			target.teleport(l);
 
-			System.out.println(target.getLocation().getYaw());
-
 			return time-- <= 0;
 		}
 	}
