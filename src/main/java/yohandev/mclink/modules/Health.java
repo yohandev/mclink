@@ -6,9 +6,11 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,6 +20,7 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import yohandev.mclink.Scoreboard;
+import yohandev.mclink.Utilities;
 
 public class Health implements Listener, CommandExecutor
 {
@@ -71,7 +74,7 @@ public class Health implements Listener, CommandExecutor
 
 	public static class HeartCutscene extends Cutscene
 	{
-		public HeartCutscene(Player target, Location statue)
+		public HeartCutscene(Player target, Block statue)
 		{
 			super(target);
 
@@ -81,20 +84,56 @@ public class Health implements Listener, CommandExecutor
 			}
 			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
 
-			super.push(new SoundAction(Sound.MUSIC_DISC_MELLOHI, null));
-			super.push(new ResetAction());
-			super.push(new QuestItemAction(Material.COOKED_BEEF, statue, 150));
-			super.push(new WaitAction(150));
+			/* spinning heart */
+			super.sync(new GameModeAction(GameMode.SURVIVAL));
+			super.async(new SpinningHeartAction(statue));
+			super.sync(new AwaitAction());
 
-			super.push(p ->
+			/* gain heart */
+			super.sync(new RunnableAction(() -> update(target)));
+			super.sync(new SoundAction(Sound.MUSIC_DISC_MELLOHI));
+			super.sync(new WaitAction(30));
+
+			/* regen */
+			super.sync(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP));
+			super.sync(new PotionAction(PotionEffectType.REGENERATION, 10, 5));
+		}
+
+		private class SpinningHeart extends Cutscene
+		{
+			public SpinningHeart(Location from, Entity to)
 			{
-				update(p); // update display
+				super(Utilities.FloatingItem(Material.COMMAND_BLOCK_MINECART, from));
 
-				return true;
-			});
-			super.push(new WaitAction(30));
-			super.push(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP, null));
-			super.push(new PotionAction(PotionEffectType.REGENERATION, 10, 5));
+				super.async(new LerpAction(from, to, 100, false));
+				super.async(new SpinAction(4, 100));
+				super.sync(new AwaitAction());
+				super.sync(new SuicideAction());
+			}
+		}
+
+		private class SpinningHeartAction implements Action
+		{
+			private final Block statue;
+			private SpinningHeart scene;
+
+			private SpinningHeartAction(Block statue)
+			{
+				this.statue = statue;
+				this.scene = null;
+			}
+
+			@Override
+			public boolean run()
+			{
+				if (scene == null)
+				{
+					scene = new SpinningHeart(statue.getLocation().clone().add(0, 5, 0), target);
+					scene.run();
+				}
+
+				return scene.done();
+			}
 		}
 	}
 

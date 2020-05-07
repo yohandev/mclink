@@ -87,21 +87,7 @@ public class Stamina implements Listener, CommandExecutor
 				return; // somehow got here without souls
 			}
 			Scoreboard.add(OBJECTIVE, target.getName(), 2); // add a heart vessel now, just in case
-
-			super.push(new SoundAction(Sound.MUSIC_DISC_MELLOHI, null));
-			super.push(new ResetAction());
-			super.push(new QuestItemAction(Material.COOKED_BEEF, statue, 150));
-			super.push(new WaitAction(150));
-
-			super.push(p ->
-			{
-				update(p); // update display
-
-				return true;
-			});
-			super.push(new WaitAction(30));
-			super.push(new SoundAction(Sound.ENTITY_PLAYER_LEVELUP, null));
-			super.push(new PotionAction(PotionEffectType.SATURATION, 100, 5));
+			//super.push(new PotionAction(PotionEffectType.SATURATION, 100, 5));
 		}
 	}
 

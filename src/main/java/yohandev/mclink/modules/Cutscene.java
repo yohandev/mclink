@@ -1,8 +1,7 @@
 package yohandev.mclink.modules;
 
 import org.bukkit.*;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -21,31 +20,40 @@ import java.util.*;
 
 public abstract class Cutscene
 {
-	private static final HashSet<Player> reserved = new HashSet<>();
+	private static final HashSet<Entity> reserved = new HashSet<>();
 
-	public final Player target;
-	public Location start;
+	protected Entity target;
+	protected Location start;
 
-	private final Queue<Action> actions;
-	private Cutscene chain;
+	private Queue<Action> actions;
+	private List<Action> await;
 
-	public Cutscene(Player target)
+	public Cutscene(Entity target)
 	{
 		this.target = target;
 		this.start = target.getLocation().clone();
 
 		this.actions = new LinkedList<>();
+		this.await = new ArrayList<>();
 	}
 
-	public boolean run()
+	public void run()
 	{
+		// one cut-scene at a time per entity
 		if (reserved.contains(target))
 		{
-			return false;
+			return;
+		}
+		reserved.add(target);
+
+		// spectator mode
+		if (target instanceof Player)
+		{
+			((Player) target).setGameMode(GameMode.SPECTATOR);
 		}
 
-		reserved.add(target);
-		target.setGameMode(GameMode.SPECTATOR);
+		// save location to revert back
+		start = target.getLocation().clone();
 
 		new BukkitRunnable()
 		{
@@ -54,175 +62,263 @@ public abstract class Cutscene
 			{
 				if (actions.isEmpty())
 				{
-					reserved.remove(target); // unreserve
-					target.teleport(start); // reset pos
-					target.setGameMode(GameMode.SURVIVAL); // reset gm
-					target.setInvulnerable(false);
-					target.setFlying(false);
+					// un-reserve
+					reserved.remove(target);
 
-					cancel(); // finish cutscene
-
-					if (chain != null) // chain cutscene
+					// survival mode
+					if (target instanceof Player)
 					{
-						chain.start = start;
-						chain.run();
+						((Player) target).setGameMode(GameMode.SURVIVAL);
 					}
 
-					return;
-				}
+					// revert location
+					target.teleport(start);
 
-				if (actions.peek().run(target))
+					// stop loop
+					cancel();
+				}
+				else if (actions.peek().run())
 				{
 					actions.remove();
 				}
 			}
-		}.runTaskTimer(Main.instance, 0, 1);
-
-		return true;
+		}
+		.runTaskTimer(Main.instance, 0, 1);
 	}
 
-	protected void push(Action a)
+	protected void sync(Action a)
 	{
 		this.actions.add(a);
 	}
 
-	protected void chain(Cutscene c) // cutscene to play when this is done
+	protected void async(Action a)
 	{
-		this.chain = c;
+		sync(new AsyncActionWrapper(a));
+	}
+
+	protected void append(Cutscene c) // cutscene to play when this is done
+	{
+		c.target = this.target;
+		c.start = this.start;
+		c.await = this.await;
+
+		this.actions.addAll(c.actions);
+	}
+
+	public boolean done()
+	{
+		return this.actions.isEmpty();
 	}
 
 	public interface Action
 	{
-		boolean run(Player p); // returns if done
+		boolean run();
 	}
 
-	protected class PanAction implements Action
+	private class AsyncActionWrapper implements Action
 	{
-		public final Location start, dest;
-		public final long time;
+		private final Action action;
 
-		public final Location travel;
-		public final Vector delta;
-		public final double dist;
-
-		public final boolean async;
-
-		public PanAction(Location start, Location dest, long time, boolean async)
+		private AsyncActionWrapper(Action action)
 		{
-			this.start = start;
-			this.dest = dest;
-			this.time = time;
-
-			this.travel = dest.clone().subtract(start);
-			this.dist = travel.length();
-			this.delta = travel.toVector().normalize().multiply(dist / time);
-
-			this.async = async;
+			this.action = action;
 		}
 
-		public PanAction(Location center, double radius, boolean abs, long time, boolean async)
+		public boolean run()
 		{
-			this(Utilities.RandomLocation(center, radius, abs), Utilities.RandomLocation(center, radius, abs), time, async);
-		}
+			await.add(action);
 
-		@Override
-		public boolean run(Player p)
-		{
-			p.getLocation().setDirection(delta);
-
-			return async ? runAsync(p) : runSync(p);
-		}
-
-		private boolean runAsync(Player p)
-		{
 			new BukkitRunnable()
 			{
-				long count = time;
-
 				@Override
 				public void run()
 				{
-					step(p);
-
-					if (count-- <= 0)
+					if (action.run())
 					{
-						cancel();
+						cancel(); // done
+						await.remove(action);
 					}
 				}
-			}.runTaskTimer(Main.instance, 0, 1);
-
-			return true; // async auto done
-		}
-
-		private boolean runSync(Player p)
-		{
-			step(p);
-
-			if (p.getLocation().distanceSquared(dest) <= 0.2) // threshold
-			{
-				return true; // reached destination
 			}
-			return false; // not done
-		}
-
-		private void step(Player p)
-		{
-			p.teleport(start.add(this.delta));
-		}
-	}
-
-	protected class LookAtAction implements Action
-	{
-		public final Location at;
-		public final long time;
-
-		public LookAtAction(Location at, long time)
-		{
-			this.at = at;
-			this.time = time;
-		}
-
-		@Override
-		public boolean run(Player p)
-		{
-			new BukkitRunnable()
-			{
-				long count = time;
-
-				@Override
-				public void run()
-				{
-					Location loc = p.getLocation();
-					Vector dir = at.clone().subtract(loc).toVector().normalize();
-
-					p.teleport(loc.setDirection(dir));
-
-					if (count-- <= 0)
-					{
-						cancel();
-					}
-				}
-			}.runTaskTimer(Main.instance, 0, 1);
+			.runTaskTimer(Main.instance, 0, 1);
 
 			return true;
 		}
 	}
 
-	protected class PanLookAtAction implements Action
+	protected class WaitAction implements Action
 	{
-		private final PanAction pan;
-		private final LookAtAction look;
+		public final long time;
 
-		public PanLookAtAction(Location target, double radius, long time)
+		protected long count;
+
+		public WaitAction(long time)
 		{
-			this.pan = new PanAction(target, radius, true, time, true);
-			this.look = new LookAtAction(target, time);
+			this.time = time;
+
+			this.count = time;
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
-			return pan.run(p) && look.run(p);
+			return count-- <= 0;
+		}
+	}
+
+	protected class AwaitAction implements Action
+	{
+		@Override
+		public boolean run()
+		{
+			return await.isEmpty();
+		}
+	}
+
+	protected class RunnableAction implements Action
+	{
+		public final Runnable action;
+
+		public RunnableAction(Runnable action)
+		{
+			this.action = action;
+		}
+
+		@Override
+		public boolean run()
+		{
+			action.run();
+
+			return true;
+		}
+	}
+
+	protected class LerpAction implements Action
+	{
+		public final Location from;
+
+		public final Entity ent;
+		public final Location loc;
+
+		public final double dt;
+		private double t;
+
+		public final boolean reset;
+
+		public LerpAction(Location from, Location to, long time, boolean reset)
+		{
+			this.from = from;
+			this.loc = to;
+			this.ent = null;
+
+			this.dt = 1.0 / time;
+			this.t = 0;
+
+			this.reset = reset;
+		}
+
+		public LerpAction(Location from, Location to, long time)
+		{
+			this(from, to, time, true);
+		}
+
+		public LerpAction(Location from, Entity to, long time, boolean reset)
+		{
+			this.from = from;
+			this.loc = null;
+			this.ent = to;
+
+			this.dt = 1.0 / time;
+			this.t = 0;
+
+			this.reset = reset;
+		}
+
+		public LerpAction(Location from, Entity to, long time)
+		{
+			this(from, to, time, true);
+		}
+
+		@Override
+		public boolean run()
+		{
+			Location to = ent == null ? loc : ent.getLocation();
+
+			if ((t += dt) <= 1)
+			{
+				target.teleport(Utilities.lerp(from, to, t));
+			}
+			else
+			{
+				target.teleport(start.clone());
+			}
+
+			return t >= 1;
+		}
+	}
+
+	protected class LookAtAction implements Action
+	{
+		public final Entity ent;
+		public final Location loc;
+
+		private long time;
+
+		public LookAtAction(Location at, long time)
+		{
+			this.loc = at;
+			this.ent = null;
+
+			this.time = time;
+		}
+
+		public LookAtAction(Entity at, long time)
+		{
+			this.loc = null;
+			this.ent = at;
+
+			this.time = time;
+		}
+
+		@Override
+		public boolean run()
+		{
+			Location look = target.getLocation();
+			Location at = ent == null ? loc : ent.getLocation();
+
+			Vector dir = at.clone().subtract(look).toVector().normalize();
+
+			target.teleport(look.clone().setDirection(dir));
+
+			return time-- <= 0;
+		}
+	}
+
+	protected class SpinAction implements Action
+	{
+		public final float speed;
+
+		private long time;
+		private float yaw;
+
+		public SpinAction(float speed, long time)
+		{
+			this.speed = speed;
+			this.time = time;
+			this.yaw = 0;
+		}
+
+		@Override
+		public boolean run()
+		{
+			Location l = target.getLocation().clone();
+			l.setYaw(yaw += speed);
+
+			target.teleport(l);
+
+			System.out.println(target.getLocation().getYaw());
+
+			return time-- <= 0;
 		}
 	}
 
@@ -242,11 +338,11 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
 			if (count == time)
 			{
-				p.sendMessage(message);
+				target.sendMessage(message);
 			}
 
 			return count-- <= 0;
@@ -263,33 +359,13 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
 			if (count == time || (count % 25 == 0 && count >= FADE)) // send it repeating, with minimal redundancy
 			{
-				Main.command("title " +  p.getName() + " actionbar {\"text\":\"" + message + "\"}");
+				Main.command("title " +  target.getName() + " actionbar {\"text\":\"" + message + "\"}");
 			}
 
-			return count-- <= 0;
-		}
-	}
-
-	protected class WaitAction implements Action
-	{
-		public final long time;
-
-		protected long count;
-
-		public WaitAction(long time)
-		{
-			this.time = time;
-
-			this.count = time;
-		}
-
-		@Override
-		public boolean run(Player p)
-		{
 			return count-- <= 0;
 		}
 	}
@@ -310,7 +386,7 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
 			if (count == time)
 			{
@@ -332,11 +408,20 @@ public abstract class Cutscene
 			this.source = source;
 		}
 
-		@Override
-		public boolean run(Player p)
+		public SoundAction(Sound sound)
 		{
-			p.playSound(source == null ? p.getLocation() : source, sound, 1, 1);
+			this(sound, null);
+		}
 
+		@Override
+		public boolean run()
+		{
+			Location emitter = source == null ? target.getLocation() : source;
+
+			if (target instanceof Player)
+			{
+				((Player) target).playSound(emitter, sound, 1, 1);
+			}
 			return true;
 		}
 	}
@@ -351,9 +436,12 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
-			p.addPotionEffect(effect);
+			if (target instanceof LivingEntity)
+			{
+				((LivingEntity) target).addPotionEffect(effect);
+			}
 
 			return true;
 		}
@@ -396,16 +484,29 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
-			if (p.getOpenInventory() != inventory)
+			if (!(target instanceof Player))
+			{
+				return true;
+			}
+			Player player = (Player) target;
+
+			if (selected >= 0)
+			{
+				options.get(selected).action.run(); // run selected
+
+				return true;
+			}
+
+			if (player.getOpenInventory() != inventory)
 			{
 				Main.instance.register(this);
 
-				p.openInventory(inventory);
+				player.openInventory(inventory);
 			}
 
-			return selected >= 0;
+			return false;
 		}
 
 		@EventHandler
@@ -443,9 +544,7 @@ public abstract class Cutscene
 				return;
 			}
 
-			options.get(selected).action.run(); // run selected
-
-			target.closeInventory(); // done
+			((Player) target).closeInventory(); // done
 		}
 
 		@EventHandler
@@ -478,86 +577,73 @@ public abstract class Cutscene
 		}
 	}
 
-	protected class QuestItemAction implements Action
-	{
-		public final long time;
-
-		public final ArmorStand display;
-
-		public final Location start, end;
-
-		public final Location travel;
-		public final Vector delta;
-		public final double dist;
-
-		public QuestItemAction(Material item, Location start, long time)
-		{
-			Location end = Cutscene.this.start;
-
-			display = start.getWorld().spawn(start.clone(), ArmorStand.class);
-
-			display.setVisible(false);
-			display.setInvulnerable(true);
-			display.setBasePlate(false);
-			display.setGravity(false);
-			display.getEquipment().setHelmet(new ItemStack(item));
-
-			this.start = start.clone().add(0, 5, 0);
-			this.end = end;
-			this.time = time;
-
-			this.travel = this.end.clone().subtract(this.start);
-			this.dist = travel.length();
-			this.delta = travel.toVector().normalize().multiply(dist / time);
-		}
-
-		@Override
-		public boolean run(Player p)
-		{
-			new BukkitRunnable()
-			{
-				long count = time;
-
-				@Override
-				public void run()
-				{
-					/* armor stand*/
-					start.add(delta);
-					start.setYaw(start.getYaw() + 4);
-
-					display.teleport(start);
-
-					/* player */
-					Location loc = p.getLocation();
-					Vector dir = display.getLocation().clone().subtract(loc).toVector().normalize();
-
-					p.teleport(loc.setDirection(dir));
-
-					if (count-- <= 0)
-					{
-						display.remove();
-
-						cancel();
-					}
-				}
-			}.runTaskTimer(Main.instance, 0, 1);
-
-			return true; // async auto done
-		}
-	}
-
-	protected class ResetAction implements Action
-	{
-		@Override
-		public boolean run(Player p)
-		{
-			target.teleport(start); // reset pos
-			target.setInvulnerable(true);
-			target.setGameMode(GameMode.SURVIVAL); // reset gm
-
-			return true;
-		}
-	}
+//	protected class QuestItemAction implements Action
+//	{
+//		public final long time;
+//
+//		public final ArmorStand display;
+//
+//		public final Location start, end;
+//
+//		public final Location travel;
+//		public final Vector delta;
+//		public final double dist;
+//
+//		public QuestItemAction(Material item, Location start, long time)
+//		{
+//			Location end = Cutscene.this.start;
+//
+//			display = start.getWorld().spawn(start.clone(), ArmorStand.class);
+//
+//			display.setVisible(false);
+//			display.setInvulnerable(true);
+//			display.setBasePlate(false);
+//			display.setGravity(false);
+//			display.getEquipment().setHelmet(new ItemStack(item));
+//
+//			this.start = start.clone().add(0, 5, 0);
+//			this.end = end;
+//			this.time = time;
+//
+//			this.travel = this.end.clone().subtract(this.start);
+//			this.dist = travel.length();
+//			this.delta = travel.toVector().normalize().multiply(dist / time);
+//		}
+//
+//		@Override
+//		public boolean run(Player p)
+//		{
+//			new BukkitRunnable()
+//			{
+//				long count = time;
+//
+//				@Override
+//				public void run()
+//				{
+//					/* armor stand*/
+//					start.add(delta);
+//					start.setYaw(start.getYaw() + 4);
+//
+//					display.teleport(start);
+//
+//					/* player */
+//					Location loc = p.getLocation();
+//					Vector dir = display.getLocation().clone().subtract(loc).toVector().normalize();
+//
+//					p.teleport(loc.setDirection(dir));
+//
+//					if (count-- <= 0)
+//					{
+//						display.remove();
+//
+//						cancel();
+//					}
+//				}
+//			}.runTaskTimer(Main.instance, 0, 1);
+//
+//			return true; // async auto done
+//		}
+//	}
 
 	protected class GameModeAction implements Action
 	{
@@ -569,9 +655,23 @@ public abstract class Cutscene
 		}
 
 		@Override
-		public boolean run(Player p)
+		public boolean run()
 		{
-			target.setGameMode(mode);
+			if (target instanceof Player)
+			{
+				((Player) target).setGameMode(mode);
+			}
+
+			return true;
+		}
+	}
+
+	protected class SuicideAction implements Action
+	{
+		@Override
+		public boolean run()
+		{
+			target.remove();
 
 			return true;
 		}
