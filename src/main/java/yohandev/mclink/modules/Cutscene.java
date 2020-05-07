@@ -368,6 +368,28 @@ public abstract class Cutscene
 		}
 	}
 
+	protected class TitleAction extends ChatAction
+	{
+		public static final long FADE = 20;
+
+		public TitleAction(String message, long time)
+		{
+			super(message, time);
+		}
+
+		@Override
+		public boolean run()
+		{
+			if (count == time)
+			{
+				Main.command("title " + target.getName() + " times " + FADE + " " + (time - FADE * 2) + " " + FADE);
+				Main.command("title " +  target.getName() + " title {\"text\":\"" + message + "\"}");
+			}
+
+			return count-- <= 0;
+		}
+	}
+
 	protected class CommandAction implements Action
 	{
 		public final String command;

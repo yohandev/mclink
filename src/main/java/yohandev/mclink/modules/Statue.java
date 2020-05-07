@@ -98,8 +98,6 @@ public class Statue implements Listener
 				return;
 			}
 
-			System.out.println("gen");
-
 			/* gen shrine */
 			chunk.getBlock(x, y + 1, z).setType(Material.STONE_BRICKS); // base
 			chunk.getBlock(x, y + 2, z).setType(Material.COMMAND_BLOCK); // statue

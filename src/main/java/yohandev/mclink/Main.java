@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import yohandev.mclink.modules.Health;
 import yohandev.mclink.modules.Stamina;
 import yohandev.mclink.modules.Statue;
+import yohandev.mclink.modules.TrialStatue;
 
 public final class Main extends JavaPlugin
 {
@@ -21,6 +22,7 @@ public final class Main extends JavaPlugin
 		register(new Health());
 		register(new Stamina());
 		register(new Statue());
+		register(new TrialStatue(), "trial");
 	}
 
 	public void register(Object obj, String cmd)
@@ -44,4 +46,6 @@ public final class Main extends JavaPlugin
 	{
 		Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
 	}
+
+
 }
