@@ -4,6 +4,7 @@ import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -12,6 +13,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 import yohandev.mclink.Main;
 import yohandev.mclink.Utilities;
@@ -26,7 +28,7 @@ public abstract class Cutscene
 	protected Location start;
 
 	private Queue<Action> actions;
-	private List<Action> await;
+	private List<AsyncActionWrapper> await;
 
 	public Cutscene(Entity target)
 	{
@@ -62,6 +64,12 @@ public abstract class Cutscene
 			{
 				if (actions.isEmpty())
 				{
+					// stop async
+					while (!await.isEmpty())
+					{
+						await.get(0).cancel();
+					}
+
 					// un-reserve
 					reserved.remove(target);
 
@@ -117,18 +125,13 @@ public abstract class Cutscene
 
 	private class AsyncActionWrapper implements Action
 	{
-		private final Action action;
+		public final Action action;
+		private final BukkitRunnable runnable;
 
-		private AsyncActionWrapper(Action action)
+		private AsyncActionWrapper(Action a)
 		{
-			this.action = action;
-		}
-
-		public boolean run()
-		{
-			await.add(action);
-
-			new BukkitRunnable()
+			this.action = a;
+			this.runnable = new BukkitRunnable()
 			{
 				@Override
 				public void run()
@@ -136,13 +139,24 @@ public abstract class Cutscene
 					if (action.run())
 					{
 						cancel(); // done
-						await.remove(action);
+						await.remove(AsyncActionWrapper.this);
 					}
 				}
-			}
-			.runTaskTimer(Main.instance, 0, 1);
+			};
+		}
+
+		public boolean run()
+		{
+			await.add(this);
+			runnable.runTaskTimer(Main.instance, 0, 1);
 
 			return true;
+		}
+
+		public void cancel()
+		{
+			this.runnable.cancel();
+			await.remove(this);
 		}
 	}
 
@@ -311,10 +325,17 @@ public abstract class Cutscene
 		@Override
 		public boolean run()
 		{
-			Location l = target.getLocation().clone();
-			l.setYaw(yaw += speed);
+			if (target instanceof ArmorStand)
+			{
+				((ArmorStand) target).setHeadPose(new EulerAngle(0, (yaw += speed) * Math.PI / 280.0, 0));
+			}
+			else
+			{
+				Location l = target.getLocation().clone();
+				l.setYaw(yaw += speed);
 
-			target.teleport(l);
+				target.teleport(l);
+			}
 
 			return time-- <= 0;
 		}
@@ -679,6 +700,75 @@ public abstract class Cutscene
 				start = to.clone();
 			}
 			target.teleport(to);
+
+			return true;
+		}
+	}
+
+	protected class PreventSpawnAction implements Action, Listener
+	{
+		public final double radius;
+		public final long time;
+
+		private long count;
+
+		public PreventSpawnAction(double radius, long time)
+		{
+			this.radius = radius;
+			this.time = time;
+
+			this.count = time;
+		}
+
+		@Override
+		public boolean run()
+		{
+			if (count == time)
+			{
+				Main.instance.register(this);
+			}
+
+			return count-- <= 0;
+		}
+
+		@EventHandler(ignoreCancelled = true)
+		public void onCreatureSpawn(CreatureSpawnEvent e)
+		{
+			if (e.getSpawnReason() != CreatureSpawnEvent.SpawnReason.NATURAL)
+			{
+				return;
+			}
+			if (count > 0)
+			{
+				return;
+			}
+			if (done())
+			{
+				return;
+			}
+			if (e.getEntity().getLocation().distanceSquared(target.getLocation()) > radius * radius)
+			{
+				return;
+			}
+
+			System.out.println("prevented spawn");
+			e.setCancelled(true);
+		}
+	}
+
+	protected class ClearEntitiesAction implements Action
+	{
+		public final double radius;
+
+		public ClearEntitiesAction(double radius)
+		{
+			this.radius = radius;
+		}
+
+		@Override
+		public boolean run()
+		{
+			target.getNearbyEntities(radius, radius, radius).forEach(Entity::remove);
 
 			return true;
 		}

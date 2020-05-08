@@ -1,26 +1,30 @@
 package yohandev.mclink.modules;
 
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.world.WorldInitEvent;
 import org.bukkit.generator.BlockPopulator;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import org.bukkit.util.noise.SimplexOctaveGenerator;
+import yohandev.mclink.Main;
 import yohandev.mclink.NBT;
 import yohandev.mclink.Utilities;
 
-import java.util.HashSet;
-import java.util.Random;
+import java.util.*;
 
 public class Trial implements Listener, CommandExecutor
 {
@@ -94,14 +98,22 @@ public class Trial implements Listener, CommandExecutor
 
 	private static class TrialCutscene extends Cutscene
 	{
+		public final int slot;
+
+		public final String name;
+		public final Location center;
+		public final ItemStack loot;
+
 		public TrialCutscene(Player p, ItemStack item, Location warp)
 		{
 			super(p);
 
-			final int slot = getSlot();
+			this.slot = getSlot();
 
-			String name = Utilities.name(item);
-			Location center = new Location(p.getWorld(), xz(slot), y(p), xz(slot));
+			this.name = Utilities.name(item);
+			this.center = new Location(p.getWorld(), xz(slot), y(p), xz(slot));
+			this.loot = item;
+
 			Vector dir = BlockFace.NORTH.getDirection();
 
 			/* generate arena */
@@ -121,13 +133,15 @@ public class Trial implements Listener, CommandExecutor
 
 			super.sync(new AwaitAction());
 
-			center = Utilities.safe(center);
+			Location c = Utilities.safe(center);
 
 			/* pan */
-			super.async(new LerpAction(Utilities.add(center, dir, 5).add(0, 10, 0), Utilities.add(center, dir, 2).add(0, 2, 0), 320, false));
-			super.async(new LookAtAction(center, 300));
+			super.async(new PreventSpawnAction(ARENA_RADIUS * 2, 320));
+			super.async(new LerpAction(Utilities.add(c, dir, 5).add(0, 10, 0), Utilities.add(c, dir, 2).add(0, 2, 0), 320, false));
+			super.async(new LookAtAction(c, 300));
 
 			super.sync(new WaitAction(30));
+			//super.sync(new ClearEntitiesAction(ARENA_RADIUS * 2));
 
 			/* dialogue */
 			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
@@ -143,14 +157,12 @@ public class Trial implements Listener, CommandExecutor
 			super.sync(new AwaitAction());
 
 			/* start fighting */
-			super.sync(new TeleportAction(center, true));
+			super.async(new PreventSpawnAction(ARENA_RADIUS * 2, Integer.MAX_VALUE));
+			super.sync(new TeleportAction(c, true));
 			super.sync(new GameModeAction(GameMode.SURVIVAL));
 
-			/* temporary buffer time */
-			super.sync(new WaitAction(1000));
-
-			/* un-reserve slot */
-			super.sync(new RunnableAction(() -> slots.remove(slot)));
+			/* buffer time */
+			super.sync(new DuelAction(p.getWorld().spawn(c.add(0, 4, 0), IronGolem.class)));
 		}
 
 		private class GenerateAction implements Action
@@ -227,6 +239,123 @@ public class Trial implements Listener, CommandExecutor
 				return false;
 			}
 		}
+
+		private class DuelAction implements Action, Listener
+		{
+			public final List<Entity> enemies;
+
+			private boolean registered, done;
+
+			public DuelAction(Entity... enemies)
+			{
+				this.enemies = new ArrayList<>(enemies.length);
+				this.registered = false;
+				this.done = false;
+
+				this.enemies.addAll(Arrays.asList(enemies));
+			}
+
+			@Override
+			public boolean run()
+			{
+				if (!registered)
+				{
+					registered = true;
+					Main.instance.register(this);
+				}
+				return done;
+			}
+
+			@EventHandler
+			public void onPlayerDeath(PlayerDeathEvent e)
+			{
+				if (done)
+				{
+					return;
+				}
+				if (e.getEntity() != target)
+				{
+					return;
+				}
+
+				done = true;
+
+				/* loss dialogue */
+				sync(new ChatAction("Perhaps you were too ambitious...", 0));
+
+				/* un-reserve slot */
+				sync(new RunnableAction(() -> slots.remove(slot)));
+			}
+
+			@EventHandler
+			public void onEntityDeath(EntityDeathEvent e)
+			{
+				if (done)
+				{
+					return;
+				}
+
+				for (int i = 0; i < enemies.size(); i++)
+				{
+					if (enemies.get(i).getUniqueId().equals(e.getEntity().getUniqueId()))
+					{
+						enemies.remove(i);
+						break;
+					}
+				}
+
+				if (done = enemies.isEmpty())
+				{
+					/* victory dialogue */
+					async(new DialogueAction("You have proven your strength, hero.", 100));
+					sync(new SpinningItemAction(loot));
+
+					sync(new WaitAction(60));
+					sync(new ChatAction("Teleporting back in " + ChatColor.GREEN + "" + ChatColor.BOLD + "15 seconds" + ChatColor.WHITE + "...", 0));
+					sync(new WaitAction(300));
+					// wait until pick up
+
+					/* un-reserve slot */
+					sync(new RunnableAction(() -> slots.remove(slot)));
+				}
+			}
+		}
+
+		private class SpinningItem extends Cutscene
+		{
+			public SpinningItem(ItemStack item)
+			{
+				super(Utilities.floatingItem(item.getType(), center.clone().add(0, ARENA_HEIGHT / 2.0, 0)));
+
+				super.async(new SpinAction(4, 300));
+				super.sync(new LerpAction(target.getLocation().clone(), Utilities.safe(center).add(0, 1, 0), 300, false));
+				super.sync(new RunnableAction(() -> target.getWorld().dropItem(target.getLocation(), item).setGlowing(true)));
+				super.sync(new SuicideAction());
+			}
+		}
+
+		private class SpinningItemAction implements Action
+		{
+			private ItemStack item;
+			private SpinningItem scene;
+
+			public SpinningItemAction(ItemStack item)
+			{
+				this.item = item;
+			}
+
+			@Override
+			public boolean run()
+			{
+				if (scene == null)
+				{
+					scene = new SpinningItem(item);
+					scene.run();
+				}
+
+				return scene.done();
+			}
+		}
 	}
 
 	public static class Generator extends BlockPopulator
@@ -238,6 +367,7 @@ public class Trial implements Listener, CommandExecutor
 		{
 			if (random.nextDouble() > SPAWN_CHANCE)
 			{
+
 				return; // no trial
 			}
 
