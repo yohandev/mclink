@@ -98,7 +98,7 @@ public class Health implements Listener
 		{
 			public SpinningHeart(Location from, Entity to)
 			{
-				super(Utilities.FloatingItem(Material.COMMAND_BLOCK_MINECART, from));
+				super(Utilities.floatingItem(Material.COMMAND_BLOCK_MINECART, from));
 
 				super.async(new LerpAction(from, to, 100, false));
 				super.async(new SpinAction(4, 100));

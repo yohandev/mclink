@@ -6,13 +6,17 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.world.WorldInitEvent;
+import org.bukkit.generator.BlockPopulator;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import org.bukkit.util.noise.SimplexOctaveGenerator;
+import yohandev.mclink.NBT;
 import yohandev.mclink.Utilities;
 
 import java.util.HashSet;
@@ -24,6 +28,8 @@ public class Trial implements Listener, CommandExecutor
 	public static final int ARENA_HEIGHT = 60;
 	public static final int ARENA_0 = (Integer.MIN_VALUE / 200) + (ARENA_RADIUS * 2);
 
+	public static final String TAG = "trialwarp";
+
 	private static final HashSet<Integer> slots = new HashSet<>(); // used slots
 
 	@Override // TODO TEMPORARY
@@ -33,7 +39,10 @@ public class Trial implements Listener, CommandExecutor
 		{
 			return false;
 		}
-		start((Player) sender, new ItemStack(Material.DIAMOND_AXE));
+
+		Entity s = Utilities.floatingItem(Material.DIAMOND_SWORD, ((Player) sender).getLocation());
+
+		NBT.add(s, TAG);
 
 		return true;
 	}
@@ -45,13 +54,20 @@ public class Trial implements Listener, CommandExecutor
 		{
 			return;
 		}
-		if (e.getRightClicked().)
-	}
+		if (!NBT.has(e.getRightClicked(), TAG))
+		{
+			return;
+		}
 
-	private void start(Player p, ItemStack loot)
-	{
+		ItemStack item = ((ArmorStand) e.getRightClicked()).getEquipment().getHelmet();
+		Player player = e.getPlayer();
+		Location where = e.getRightClicked().getLocation();
 
-		new TrialCutscene(p, slot, Utilities.name(loot)).run();
+		System.out.println(where);
+
+		new TrialCutscene(player, item, where).run();
+
+		e.setCancelled(true);
 	}
 
 	private static int getSlot()
@@ -78,21 +94,31 @@ public class Trial implements Listener, CommandExecutor
 
 	private static class TrialCutscene extends Cutscene
 	{
-		public TrialCutscene(Player p, String name)
+		public TrialCutscene(Player p, ItemStack item, Location warp)
 		{
 			super(p);
 
 			final int slot = getSlot();
 
+			String name = Utilities.name(item);
 			Location center = new Location(p.getWorld(), xz(slot), y(p), xz(slot));
 			Vector dir = BlockFace.NORTH.getDirection();
 
-			/* pre-trial dialogue */
-
-
-			/* generate arena */ // TODO do this during the pre-trial dialogue
-			super.async(new ChatAction("Generating arena...", 10));
+			/* generate arena */
 			super.async(new GenerateAction(center));
+
+			/* pre-trial dialogue */
+			super.async(new LerpAction(Utilities.add(warp, dir, 5), Utilities.add(warp, dir, 2), 200, false));
+			super.async(new LookAtAction(warp, 200));
+
+			super.sync(new WaitAction(20));
+
+			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
+			super.sync(new DialogueAction("This item once belonged to a great warrior...", 100));
+
+			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
+			super.sync(new DialogueAction("Before you may wield it, the gods demand a test of strength.", 100));
+
 			super.sync(new AwaitAction());
 
 			center = Utilities.safe(center);
@@ -105,7 +131,7 @@ public class Trial implements Listener, CommandExecutor
 
 			/* dialogue */
 			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
-			super.sync(new DialogueAction("To whom sets food in this shrine...", 100));
+			super.sync(new DialogueAction("To whom sets foot in this shrine...", 100));
 
 			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
 			super.sync(new DialogueAction("In the name of the gods, I offer this trial.", 100));
@@ -129,7 +155,7 @@ public class Trial implements Listener, CommandExecutor
 
 		private class GenerateAction implements Action
 		{
-			public static final int LAYERS_PER_TICK = 3;
+			public static final int LAYERS_PER_TICK = 1;
 
 			public final SimplexOctaveGenerator noise;
 
@@ -201,5 +227,76 @@ public class Trial implements Listener, CommandExecutor
 				return false;
 			}
 		}
+	}
+
+	public static class Generator extends BlockPopulator
+	{
+		public static double SPAWN_CHANCE = 0.025;
+
+		@Override
+		public void populate(World world, Random random, Chunk chunk)
+		{
+			if (random.nextDouble() > SPAWN_CHANCE)
+			{
+				return; // no trial
+			}
+
+			int x = random.nextInt(13) + 1;
+			int z = random.nextInt(13) + 1;
+			int y;
+			for (y = world.getMaxHeight() - 1; chunk.getBlock(x, y, z).getType() == Material.AIR; y--);
+
+			if (chunk.getBlock(x, y, z).getType() == Material.WATER)
+			{
+				return;
+			}
+
+			/* clear prev. gen */
+			for (Entity e : chunk.getEntities())
+			{
+				if (NBT.has(e, TAG))
+				{
+					e.remove();
+				}
+			}
+
+			/* gen shrine */
+			chunk.getBlock(x, y + 1, z).setType(Material.ANDESITE); // pedestal
+
+			chunk.getBlock(x + 1, y + 1, z).setType(Material.MOSSY_STONE_BRICK_SLAB); // stair
+			chunk.getBlock(x - 1, y + 1, z).setType(Material.STONE_BRICK_SLAB); // stair
+			chunk.getBlock(x, y + 1, z + 1).setType(Material.MOSSY_STONE_BRICK_SLAB); // stair
+			chunk.getBlock(x, y + 1, z - 1).setType(Material.STONE_BRICK_SLAB); // stair
+
+			chunk.getBlock(x + 1, y + 1, z + 1).setType(Material.STONE_BRICKS); // base
+			chunk.getBlock(x - 1, y + 1, z + 1).setType(Material.CRACKED_STONE_BRICKS); // base
+			chunk.getBlock(x + 1, y + 1, z - 1).setType(Material.MOSSY_STONE_BRICKS); // base
+			chunk.getBlock(x - 1, y + 1, z - 1).setType(Material.STONE_BRICKS); // base
+
+			/* clear area */
+			chunk.getBlock(x - 1, y + 2, z - 1).setType(Material.AIR);
+			chunk.getBlock(x + 1, y + 2, z - 1).setType(Material.AIR);
+			chunk.getBlock(x + 1, y + 2, z + 1).setType(Material.AIR);
+			chunk.getBlock(x - 1, y + 2, z + 1).setType(Material.AIR);
+			chunk.getBlock(x, y + 3, z).setType(Material.AIR);
+
+			/* armor stand */
+			Location loc = new Location(world, (chunk.getX() * 16) + x + 0.4, y + 0.25, (chunk.getZ() * 16) + z + 0.5);
+			Entity s = Utilities.floatingItem(Material.DIAMOND_SWORD, loc);
+			NBT.add(s, TAG);
+		}
+	}
+
+	@EventHandler
+	public void onWorldInit(WorldInitEvent event)
+	{
+		World world = event.getWorld();
+
+		if (world.getName().contains("end") || world.getName().contains("nether"))
+		{
+			return;
+		}
+
+		world.getPopulators().add(new Generator());
 	}
 }

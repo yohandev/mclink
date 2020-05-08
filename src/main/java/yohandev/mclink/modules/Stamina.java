@@ -104,7 +104,7 @@ public class Stamina implements Listener
 		{
 			public SpinningFood(Location from, Entity to)
 			{
-				super(Utilities.FloatingItem(Material.STRUCTURE_VOID, from));
+				super(Utilities.floatingItem(Material.STRUCTURE_VOID, from));
 
 				super.async(new LerpAction(from, to, 100, false));
 				super.async(new SpinAction(4, 100));

@@ -55,7 +55,7 @@ public class Utilities
 		return new Location(a.getWorld(), v.getX(), v.getY(), v.getZ());
 	}
 
-	public static Entity FloatingItem(Material type, Location loc)
+	public static Entity floatingItem(Material type, Location loc)
 	{
 		ArmorStand stand = loc.getWorld().spawn(loc.clone(), ArmorStand.class);
 

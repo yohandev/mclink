@@ -80,7 +80,7 @@ public class Statue implements Listener
 
 			if (world.getSpawnLocation().distance(chunk.getBlock(0, 0, 0).getLocation()) < SPAWN_RADIUS)
 			{
-				chance *= 50;
+				chance *= 100;
 			}
 
 			if (random.nextDouble() > chance)
