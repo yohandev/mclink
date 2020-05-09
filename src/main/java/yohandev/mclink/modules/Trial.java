@@ -135,13 +135,24 @@ public class Trial implements Listener, CommandExecutor
 			super.sync(new AwaitAction());
 
 			Location c = Utilities.safe(center);
-			String[] types = new String[] {"SkeletalKnight", "SkeletalKnight", "SkeletalKnight"};
+			String[] types = new String[]
+			{
+				"SkeletalKnight",
+				"SkeletonKing",
+				"SkeletalKnight",
+				"StaticallyChargedSheep",
+				"AngrySludge",
+				"SkeletalMinion",
+				"SkeletalMinion",
+				"SkeletalMinion",
+				"SkeletalMinion",
+			};
 			List<Entity> enemies = new ArrayList<>(types.length);
 
 			/* pan */
-			super.async(new PreventSpawnAction(ARENA_RADIUS * 2, 320));
 			super.async(new LerpAction(Utilities.add(c, dir, 5).add(0, 10, 0), Utilities.add(c, dir, 2).add(0, 2, 0), 320, false));
 			super.async(new LookAtAction(c, 300));
+			super.async(new PreventSpawnAction(ARENA_RADIUS * 2, 320));
 
 			super.sync(new WaitAction(30));
 
@@ -340,16 +351,21 @@ public class Trial implements Listener, CommandExecutor
 					return;
 				}
 
-				for (int i = 0; i < enemies.size(); i++)
-				{
-					if (enemies.get(i).getUniqueId().equals(e.getEntity().getUniqueId()))
-					{
-						enemies.remove(i);
-						break;
-					}
-				}
+//				for (int i = 0; i < enemies.size(); i++)
+//				{
+//					if (enemies.get(i).getUniqueId().equals(e.getEntity().getUniqueId()))
+//					{
+//						enemies.remove(i);
+//						break;
+//					}
+//				}
 
-				if (done = enemies.isEmpty())
+				done = true;
+				enemies.forEach(en -> done &= en.isDead());
+				target.sendMessage("------------------");
+				enemies.forEach(en -> target.sendMessage(en.isDead() ? "DEAD" : en.getType().toString()));
+
+				if (done)
 				{
 					/* regen & protection */
 					sync(new PotionAction(PotionEffectType.REGENERATION, 10, 5));
