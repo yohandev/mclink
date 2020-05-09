@@ -1,14 +1,13 @@
 package yohandev.mclink.modules;
 
+import io.lumine.xikage.mythicmobs.api.bukkit.BukkitAPIHelper;
 import org.bukkit.*;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,6 +17,8 @@ import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.world.WorldInitEvent;
 import org.bukkit.generator.BlockPopulator;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 import org.bukkit.util.noise.SimplexOctaveGenerator;
 import yohandev.mclink.Main;
@@ -134,6 +135,8 @@ public class Trial implements Listener, CommandExecutor
 			super.sync(new AwaitAction());
 
 			Location c = Utilities.safe(center);
+			String[] types = new String[] {"SkeletalKnight", "SkeletalKnight", "SkeletalKnight"};
+			List<Entity> enemies = new ArrayList<>(types.length);
 
 			/* pan */
 			super.async(new PreventSpawnAction(ARENA_RADIUS * 2, 320));
@@ -141,11 +144,12 @@ public class Trial implements Listener, CommandExecutor
 			super.async(new LookAtAction(c, 300));
 
 			super.sync(new WaitAction(30));
-			//super.sync(new ClearEntitiesAction(ARENA_RADIUS * 2));
 
 			/* dialogue */
 			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
 			super.sync(new DialogueAction("To whom sets foot in this shrine...", 100));
+
+			super.sync(new SpawnEnemiesAction(c.clone().add(0, 4, 0), types).list(enemies));
 
 			super.sync(new SoundAction(Sound.AMBIENT_CAVE));
 			super.sync(new DialogueAction("In the name of the gods, I offer this trial.", 100));
@@ -162,7 +166,7 @@ public class Trial implements Listener, CommandExecutor
 			super.sync(new GameModeAction(GameMode.SURVIVAL));
 
 			/* buffer time */
-			super.sync(new DuelAction(p.getWorld().spawn(c.add(0, 4, 0), IronGolem.class)));
+			super.sync(new DuelAction(enemies));
 		}
 
 		private class GenerateAction implements Action
@@ -240,19 +244,60 @@ public class Trial implements Listener, CommandExecutor
 			}
 		}
 
+		private class SpawnEnemiesAction implements Action
+		{
+			public final String[] types;
+			public final Location location;
+
+			private List<Entity> enemies;
+
+			public SpawnEnemiesAction(Location loc, String... types)
+			{
+				this.types = types;
+				this.location = loc;
+			}
+
+			public SpawnEnemiesAction list(List<Entity> enemyList)
+			{
+				enemies = enemyList;
+				return this;
+			}
+
+			@Override
+			public boolean run()
+			{
+				new ClearEntitiesAction(ARENA_RADIUS * 2).run(); // clear all entities before
+
+				for (String enemy : types)
+				{
+					try
+					{
+						Location spawn = location.clone().add((Math.random() - 0.5) * ARENA_RADIUS, 0, (Math.random() - 0.5) * ARENA_RADIUS);
+
+						enemies.add(new BukkitAPIHelper().spawnMythicMob(enemy, spawn));
+					}
+					catch (Exception e)
+					{
+						target.sendMessage(ChatColor.RED + "An error occured while spawning a mob of type " + enemy);
+						target.sendMessage(ChatColor.DARK_RED + "ERR: " + e.getMessage());
+					}
+				}
+				return true;
+			}
+		}
+
 		private class DuelAction implements Action, Listener
 		{
 			public final List<Entity> enemies;
 
 			private boolean registered, done;
 
-			public DuelAction(Entity... enemies)
+			public DuelAction(List<Entity> enemies)
 			{
-				this.enemies = new ArrayList<>(enemies.length);
+				this.enemies = enemies;
+
 				this.registered = false;
 				this.done = false;
-
-				this.enemies.addAll(Arrays.asList(enemies));
 			}
 
 			@Override
@@ -306,6 +351,10 @@ public class Trial implements Listener, CommandExecutor
 
 				if (done = enemies.isEmpty())
 				{
+					/* regen & protection */
+					sync(new PotionAction(PotionEffectType.REGENERATION, 10, 5));
+					sync(new PotionAction(PotionEffectType.DAMAGE_RESISTANCE, 30, 255));
+
 					/* victory dialogue */
 					async(new DialogueAction("You have proven your strength, hero.", 100));
 					sync(new SpinningItemAction(loot));
@@ -313,7 +362,6 @@ public class Trial implements Listener, CommandExecutor
 					sync(new WaitAction(60));
 					sync(new ChatAction("Teleporting back in " + ChatColor.GREEN + "" + ChatColor.BOLD + "15 seconds" + ChatColor.WHITE + "...", 0));
 					sync(new WaitAction(300));
-					// wait until pick up
 
 					/* un-reserve slot */
 					sync(new RunnableAction(() -> slots.remove(slot)));

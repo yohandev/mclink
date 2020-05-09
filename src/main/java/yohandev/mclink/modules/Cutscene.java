@@ -751,7 +751,6 @@ public abstract class Cutscene
 				return;
 			}
 
-			System.out.println("prevented spawn");
 			e.setCancelled(true);
 		}
 	}

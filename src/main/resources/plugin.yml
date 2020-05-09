@@ -6,6 +6,8 @@ authors: [yohandev]
 description: Custom survival behaviours for my minecraft server. Inspired by BoTW, hence the name "link."
 website: yohandev.github.io
 load: startup
+depend:
+  - MythicMobs
 commands:
   trial:
     description: start a trial

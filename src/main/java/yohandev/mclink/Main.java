@@ -1,5 +1,7 @@
 package yohandev.mclink;
 
+import io.lumine.xikage.mythicmobs.MythicMobs;
+import io.lumine.xikage.mythicmobs.mobs.MythicMob;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.Listener;
@@ -17,6 +19,8 @@ public final class Main extends JavaPlugin
 	@Override
 	public void onEnable()
 	{
+		MythicMobs.inst().load();
+
 		instance = this;
 
 		// Listener
